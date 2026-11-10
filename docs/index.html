@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ICLR AC Decision Simulator</title>
+<meta name="description" content="Enter your ICLR review scores and see what Area Chairs decided for papers with the same score profile in ICLR 2024-2026: accept rates, AC overrules, silent reviewers and rebuttal length. Backtested on held-out years.">
+<meta property="og:title" content="ICLR AC Decision Simulator">
+<meta property="og:description" content="What did Area Chairs decide for papers with your exact score profile? 38,000+ reviewed ICLR 2024-2026 papers, backtested on a held-out year.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232a78d6'/%3E%3Cpath d='M8 22h4v-6H8zm6 0h4V10h-4zm6 0h4v-9h-4z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <p class="eyebrow">ICLR 2027 · rebuttal season</p>
+    <h1>AC Decision Simulator</h1>
+    <p class="lede">Score averages don't decide papers; Area Chairs do. Enter your review scores and see what ACs decided for the
+      papers that looked most like yours in ICLR 2024, 2025 and 2026: how often they were accepted, how often the AC went against
+      the scores, and what happened when reviewers went silent after the rebuttal.</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card input" aria-labelledby="in-h">
+    <h2 id="in-h" class="sr-only">Your scores</h2>
+    <form id="form" autocomplete="off">
+      <div class="step lookup">
+        <p class="step-h"><span class="step-num">1</span> Find your ICLR 2027 paper <span class="opt">fastest: fills in your scores</span></p>
+        <div class="row">
+          <label for="paperNo">Paper number or words from the title</label>
+          <div class="inline">
+            <input id="paperNo" type="search" placeholder="e.g. 8241 or LLM judge consensus" aria-controls="matches" aria-describedby="lookupMsg">
+          </div>
+          <ul id="matches" class="matches" aria-label="Matching papers" hidden></ul>
+          <p class="hint" id="lookupMsg">Results appear as you type: a paper number loads by itself; for title words, click your paper in the list. Scores come live from the public <a href="https://dipta007.github.io/iclr-2027-rebuttal-radar/" target="_blank" rel="noopener">ICLR 2027 Rebuttal Radar</a>. Your search stays in your browser.</p>
+        </div>
+      </div>
+      <div class="step">
+        <p class="step-h"><span class="step-num">2</span> Check your scores <span class="opt">or type them yourself</span></p>
+        <div class="grid3">
+          <div class="row">
+            <label for="scale">Conference year</label>
+            <select id="scale" aria-describedby="scaleHint">
+              <option value="2027">ICLR 2027 (1-4)</option>
+              <option value="2026">ICLR 2026 (0-10)</option>
+              <option value="2025">ICLR 2025 (1-10)</option>
+              <option value="2024">ICLR 2024 (1-10)</option>
+            </select>
+            <p class="hint" id="scaleHint"></p>
+          </div>
+          <div class="row">
+            <label for="initial">First scores <span class="opt">before the rebuttal</span></label>
+            <input id="initial" placeholder="e.g. 3, 2, 1" value="3, 2, 2" aria-describedby="initialHint">
+            <p class="hint" id="initialHint">One score per reviewer, separated by commas.</p>
+          </div>
+          <div class="row">
+            <label for="current">Scores now <span class="opt">optional</span></label>
+            <input id="current" placeholder="Leave empty if no change" aria-describedby="currentHint">
+            <p class="hint" id="currentHint">Only if a reviewer changed their score.</p>
+          </div>
+        </div>
+      </div>
+      <details class="step extra" id="extra">
+        <summary><span class="step-num">3</span> <span class="step-t">Rebuttal details</span> <span class="opt">optional, skip if unsure</span></summary>
+        <div class="grid3">
+          <div class="row">
+            <label for="engagement">How many reviewers replied to your rebuttal?</label>
+            <select id="engagement">
+              <option value="">Don't know yet</option>
+              <option value="0">None of them</option>
+              <option value="1">Some of them</option>
+              <option value="2">All of them</option>
+            </select>
+          </div>
+          <div class="row">
+            <label for="words">Total length of your rebuttal replies</label>
+            <select id="words">
+              <option value="">Don't know / skip</option>
+            </select>
+          </div>
+        </div>
+      </details>
+      <p class="error" id="formError" role="alert"></p>
+    </form>
+  </section>
+
+  <div id="results" aria-live="polite">
+    <section class="card" id="summary"></section>
+
+    <section class="card">
+      <h2>From your starting scores to a decision</h2>
+      <p class="how">Papers from ICLR 2024 and 2025 whose <em>pre-rebuttal</em> scores looked most like yours, followed through the rebuttal to the final decision. Hover a flow for counts.</p>
+      <div id="sankey" class="chart"></div>
+      <details><summary>Show as table</summary><div id="sankeyTable"></div></details>
+    </section>
+
+    <section class="card">
+      <h2>AC overrules: when the decision goes against the scores</h2>
+      <p class="how">Each year has one score cut-off that agrees with the most AC decisions (the <strong>score line</strong>). A paper accepted below it was <strong>rescued</strong> by the AC; a paper rejected above it was <strong>sunk</strong>. Your twins are matched on the scores you have <em>now</em>.</p>
+      <div id="overrule"></div>
+    </section>
+
+    <section class="card">
+      <h2>When reviewers go silent</h2>
+      <p class="how">ICLR 2024 is the year with public reviewer reply counts. For your 2024 twins, the AC decision split by how many reviewers posted a reply during the discussion.</p>
+      <div id="engagementChart" class="chart"></div>
+      <div id="wordsChart" class="chart"></div>
+    </section>
+
+    <section class="card">
+      <h2>Decision matrix</h2>
+      <p class="how">Accept rate for every reviewed and decided paper in ICLR 2024-2026, by final rank and by how much the reviewers disagreed. Your cell is outlined.</p>
+      <div class="tabs" role="tablist" id="matrixTabs"></div>
+      <div id="matrix" class="chart"></div>
+    </section>
+
+    <section class="card">
+      <h2>What one reviewer could change</h2>
+      <p class="how">If one reviewer raised their score by one step, starting from the scores you have now.</p>
+      <div id="whatif"></div>
+    </section>
+
+    <section class="card">
+      <h2>Your closest twins</h2>
+      <p class="how">The past papers nearest to your current profile. Open any of them on OpenReview to read the reviews and the AC's meta-review.</p>
+      <div id="twinsTable"></div>
+    </section>
+  </div>
+
+  <section class="card" id="method">
+    <h2>How it works, and how well</h2>
+    <div class="cols">
+      <div>
+        <h3>Matching across score scales</h3>
+        <p>ICLR changed its scale every year (2024-25: 1/3/5/6/8/10, 2026: 0-10 even, 2027: 1-4), so raw numbers can't be compared.
+          Every score is turned into its <strong>percentile among all reviews that year</strong>, and every paper into three numbers: the percentile of its mean,
+          of its lowest score and of its highest score. The {K} nearest papers of each past year are its <em>twins</em> (all ties included).</p>
+        <div id="rosetta"></div>
+      </div>
+      <div>
+        <h3>Backtest on years it never saw</h3>
+        <p>Settings were tuned with 2024 predicting 2025, then tested once with 2024-25 predicting all of <strong>2026</strong>.</p>
+        <div id="validationTiles" class="tiles"></div>
+        <div id="calibration" class="chart"></div>
+      </div>
+    </div>
+    <h3>Limits</h3>
+    <ul class="limits">
+      <li>These are rates for past papers that looked like yours, not a prediction for your paper. The AC reads the reviews, the rebuttal and the paper; none of that is in the numbers.</li>
+      <li>2027 percentiles use the 2027 scores as they are today, which still move during the rebuttal.</li>
+      <li>Reviewer replies and rebuttal length are only public for 2024. They show association, not cause: a long rebuttal may be a sign of a hard review, not a cause of the outcome.</li>
+      <li>Withdrawn papers count as their own outcome. Desk rejects are left out of the AC numbers. ICLR 2026 had no spotlight tier.</li>
+      <li>Code links added during the rebuttal are not in any public dataset, so they are not used.</li>
+    </ul>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <div class="credit">
+    <span class="avatar" aria-hidden="true">EH</span>
+    <div><span class="by">Developed by</span><strong>Elias Hossain</strong>Doctoral Researcher, University of Central Florida</div>
+  </div>
+  <p><strong>Data.</strong> Decisions and scores: <a href="https://github.com/papercopilot/paperlists">Paper Copilot paper lists</a>. Scores before and after the rebuttal: <a href="https://github.com/papercopilot/iclr-insights">iclr-insights</a> (Kargaran et al., <a href="https://arxiv.org/abs/2511.15462">arXiv:2511.15462</a>), both CC BY 4.0, originally from OpenReview.
+    ICLR 2027 scores: <a href="https://dipta007.github.io/iclr-2027-rebuttal-radar/">ICLR 2027 Rebuttal Radar</a> by dipta007, built on <a href="https://github.com/shiqiangw/iclr-2027-scores">iclr-2027-scores</a> by shiqiangw.</p>
+  <p id="stamp"></p>
+  <p>Everything runs in your browser. No scores or paper numbers are sent anywhere.</p>
+</footer>
+
+<div id="tip" class="tip" role="tooltip" hidden></div>
+<script src="app.js?v=4"></script>
+</body>
+</html>
